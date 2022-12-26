@@ -1,5 +1,6 @@
 import json
-
+import threading
+import time
 
 def timestring_to_seconds(timeString):
     h, m, s = map(float, timeString.split(':'))
@@ -67,12 +68,15 @@ class SequenceElement:
     def check_trigger(self, time):
         return self.currentTriggerState
 
+    def reset(self):
+        self.set_trigger_state('pre_trigger')
+
 
 class SequenceOnceElement(SequenceElement):
     def __init__(self, actionsList,  startTime):
         super().__init__(actionsList, SequenceElement.SEQUENCE_TYPES['once'])
-
         self.startTime = convert_to_seconds(startTime)
+        self.reset()
 
     def check_trigger(self, time):
         if time >= self.startTime:
@@ -90,7 +94,8 @@ class SequencePeriodicElement(SequenceElement):
         self.startTime = convert_to_seconds(startTime)
         self.endTime = convert_to_seconds(endTime)
         self.period = convert_to_seconds(period)
-        self.nextTime = self.startTime + self.period
+        self.nextTime = 0
+        self.reset()
 
     def check_trigger(self, time):
         if time >= self.endTime:
@@ -104,8 +109,11 @@ class SequencePeriodicElement(SequenceElement):
                 self.set_trigger_state('triggered')
                 self.nextTime = self.nextTime + self.period
 
-        
         return self.currentTriggerState
+
+    def reset(self):
+        self.nextTime = self.startTime + self.period
+        return super().reset()
 
 
 class Sequence:
@@ -117,10 +125,16 @@ class Sequence:
 
         if filePath != None:
             self.load_from_file(filePath)
-            self.reset_sequence()
+            self.reset()
 
-    def reset_sequence(self):
-        self.activeSequence = self.sequence.copy()
+    def reset(self):
+        self.activeSequence.clear()
+        for element in self.sequence:
+            element.reset()
+            self.activeSequence.append(element)
+
+    def is_active(self):
+        return len(self.activeSequence) > 0
 
     def load_from_file(self, filePath):
         file = open(filePath, 'r')
@@ -157,7 +171,40 @@ class Sequence:
             self.activeSequence.remove(completed)
 
         self.completeSequenceElements.clear()
+        return self.is_active()
 
+
+class SequenceRunner:
+    def __init__(self, name, rate, sequence):
+        self.name = name
+        self.running = False
+        self.startTime = 0
+        self.rate = rate
+        self.sequence = sequence
+        self.thread = None
+
+    def check_times_thread(self):
+        while self.running:
+            start = time.perf_counter()
+            if self.sequence.check_triggers(start - self.startTime):
+                end = time.perf_counter()
+                time.sleep(self.rate - (end - start))
+            else:
+                self.running = False
+
+    def start(self):
+        if self.thread == None:
+            self.running = True
+            self.sequence.reset()
+            self.startTime = time.perf_counter()
+            self.thread = threading.Thread(target=self.check_times_thread)
+            self.thread.start()
+
+    def stop(self):
+        self.running = False
+        if self.thread != None:
+            self.thread.join()
+            self.thread = None
 
 if __name__ == '__main__':
     def light1Action(parameters):
@@ -174,8 +221,12 @@ if __name__ == '__main__':
     testSequence.add_action_callback('light2',light2Action)
     testSequence.add_action_callback('light3',light3Action)
     SequenceElement.TRIGGER_STATES.print_all_states()
-    time = 0.0
-    while time <= 34.0:
+    print('--- testing steps ---')
+    testTime = 0.0
+    while testTime <= 34.0:
         # print(time)
-        testSequence.check_triggers(time)
-        time += 0.016
+        testSequence.check_triggers(testTime)
+        testTime += 0.016
+    print('--- testing thread ---')
+    testTread = SequenceRunner('test', 1/60, testSequence)
+    testTread.start()
