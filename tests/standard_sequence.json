@@ -16,7 +16,7 @@
             "type":"periodic",
             "period":"00:00:01.0",
             "startTime":"00:00:00.0",
-            "endTime":"00:01:00.0",
+            "endTime":"00:00:32.0",
             "actions":[
                 {
                     "name":"light2",
@@ -25,7 +25,24 @@
                     }
                 }
             ]
-
+        },
+        {
+            "type":"once",
+            "startTime":"00:00:10.1",
+            "actions":[
+                {
+                    "name":"light1",
+                    "parameters":{
+                        "output":"on"
+                    }
+                },
+                {
+                    "name":"light3",
+                    "parameters":{
+                        "output":"off"
+                    }
+                }
+            ]
         }
     ]
 }

@@ -22,24 +22,20 @@ class StateElement:
     def __init__(self, key, value):
         self.key = key
         self.value = value
+
 class State:
     def __init__(self, statesList):
         self.states = {}
-        self.currentState = 0
         for i in range(0, len(statesList)):
-            self.states[statesList[i]] = i
+            self.states[statesList[i]] = StateElement(statesList[i], i)
 
     def print_all_states(self):
         for (k, v) in self.states.items():
-            print(f'{k}, {v}')
-
-    def set_set_by_name(self, name):
-        if name in self.states:
-            self.currentState = self.states[name]
+            print(f'{k}, {v.value}')
 
     def get_state_name_by_value(self, value):
         for (k, v) in self.states.items():
-            if v == value:
+            if v.value == value:
                 return k
         return None
     
@@ -60,43 +56,56 @@ class SequenceElement:
             'once', 
             'periodic'
         ])
-    def __init__(self, type):
+    def __init__(self, actionsList, type):
         self.type = type
-        self.actions = []
+        self.currentTriggerState = SequenceElement.TRIGGER_STATES['pre_trigger']
+        self.actions = actionsList
+
+    def set_trigger_state(self, state):
+        self.currentTriggerState = SequenceElement.TRIGGER_STATES[state]
 
     def check_trigger(self, time):
-        return SequenceElement.TRIGGER_STATES['trigger_complete']
+        return self.currentTriggerState
 
 
 class SequenceOnceElement(SequenceElement):
-    def __init__(self, startTime):
-        super().__init__(SequenceElement.ONCE)
+    def __init__(self, actionsList,  startTime):
+        super().__init__(actionsList, SequenceElement.SEQUENCE_TYPES['once'])
 
         self.startTime = convert_to_seconds(startTime)
 
     def check_trigger(self, time):
-        if time < self.startTime:
-            return SequenceElement.PRE_TRIGGER
+        if time >= self.startTime:
+            if self.currentTriggerState == SequenceElement.TRIGGER_STATES['pre_trigger']:
+                self.set_trigger_state('triggered')
+            elif self.currentTriggerState == SequenceElement.TRIGGER_STATES['triggered']:
+                self.set_trigger_state('trigger_complete')
 
-        return SequenceElement.TRIGGERED
+        return self.currentTriggerState
 
 
 class SequencePeriodicElement(SequenceElement):
-    def __init__(self, startTime, endTime, period):
-        super().__init__(SequenceElement.PERIODIC)
+    def __init__(self, actionsList, startTime, endTime, period):
+        super().__init__(actionsList, SequenceElement.SEQUENCE_TYPES['periodic'])
         self.startTime = convert_to_seconds(startTime)
         self.endTime = convert_to_seconds(endTime)
         self.period = convert_to_seconds(period)
         self.nextTime = self.startTime + self.period
 
     def check_trigger(self, time):
-        if time < self.nextTime:
-            return SequenceElement.PRE_TRIGGER
-        elif time > self.endTime:
-            return SequenceElement.TRIGGER_COMPLETE
+        if time >= self.endTime:
+            if self.currentTriggerState != SequenceElement.TRIGGER_STATES['trigger_complete']:
+                self.set_trigger_state('trigger_complete')
+        elif time < self.nextTime:
+            if self.currentTriggerState != SequenceElement.TRIGGER_STATES['pre_trigger']:
+                self.set_trigger_state('pre_trigger')
+        elif time >= self.nextTime:
+            if self.currentTriggerState == SequenceElement.TRIGGER_STATES['pre_trigger']:
+                self.set_trigger_state('triggered')
+                self.nextTime = self.nextTime + self.period
 
-        self.nextTime = self.nextTime + self.period
-        return SequenceElement.TRIGGERED
+        
+        return self.currentTriggerState
 
 
 class Sequence:
@@ -120,11 +129,13 @@ class Sequence:
             if element['type'] == 'once':
                 self.sequence.append(
                     SequenceOnceElement(
+                        element['actions'],
                         element['startTime']))
 
             elif element['type'] == 'periodic':
                 self.sequence.append(
                     SequencePeriodicElement(
+                        element['actions'],
                         element['startTime'],
                         element['endTime'],
                         element['period']))
@@ -135,12 +146,11 @@ class Sequence:
     def check_triggers(self, time):
         for sequenceElement in self.activeSequence:
             triggerState = sequenceElement.check_trigger(time)
-            print(SequenceElement.trigger_state_enum_to_string(triggerState))
-            if triggerState == SequenceElement.TRIGGERED:
+            if triggerState == SequenceElement.TRIGGER_STATES['triggered']:
                 for action in sequenceElement.actions:
-                    if action.name in self.mappedActions:
-                        self.mappedActions[action.name](action.parameters)
-            elif triggerState == SequenceElement.TRIGGER_COMPLETE:
+                    if action['name'] in self.mappedActions:
+                        self.mappedActions[action['name']](action['parameters'])
+            elif triggerState == SequenceElement.TRIGGER_STATES['trigger_complete']:
                 self.completeSequenceElements.append(sequenceElement)
 
         for completed in self.completeSequenceElements:
@@ -150,11 +160,22 @@ class Sequence:
 
 
 if __name__ == '__main__':
+    def light1Action(parameters):
+        print(parameters)
+
+    def light2Action(parameters):
+        print(parameters)
+    
+    def light3Action(parameters):
+        print(parameters)
+
     testSequence = Sequence('../tests/standard_sequence.json')
-    testState = SequenceTypeStates()
-    testState.print_all_states()
-    # time = 0.0
-    # while time <= 31.0:
-    #     print(time)
-    #     testSequence.check_triggers(time)
-    #     time += 0.5
+    testSequence.add_action_callback('light1',light1Action)
+    testSequence.add_action_callback('light2',light2Action)
+    testSequence.add_action_callback('light3',light3Action)
+    SequenceElement.TRIGGER_STATES.print_all_states()
+    time = 0.0
+    while time <= 34.0:
+        #print(time)
+        testSequence.check_triggers(time)
+        time += 0.016
