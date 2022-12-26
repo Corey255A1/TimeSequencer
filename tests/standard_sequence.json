@@ -2,10 +2,22 @@
     "sequence":[
         {
             "type":"once",
-            "startTime":"00:00:30.1",
+            "startTime":"00:00:00.0",
             "actions":[
                 {
                     "name":"light1",
+                    "parameters":{
+                        "output":"off"
+                    }
+                },
+                {
+                    "name":"light2",
+                    "parameters":{
+                        "output":"off"
+                    }
+                },
+                {
+                    "name":"light3",
                     "parameters":{
                         "output":"on"
                     }
@@ -13,9 +25,21 @@
             ]
         },
         {
+            "type":"once",
+            "startTime":"00:00:30.1",
+            "actions":[
+                {
+                    "name":"light1",
+                    "parameters":{
+                        "output":"off"
+                    }
+                }
+            ]
+        },
+        {
             "type":"periodic",
             "period":"00:00:01.0",
-            "startTime":"00:00:00.0",
+            "startTime":"00:00:08.0",
             "endTime":"00:00:32.0",
             "actions":[
                 {

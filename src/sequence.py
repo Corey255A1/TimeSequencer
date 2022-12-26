@@ -176,6 +176,6 @@ if __name__ == '__main__':
     SequenceElement.TRIGGER_STATES.print_all_states()
     time = 0.0
     while time <= 34.0:
-        #print(time)
+        # print(time)
         testSequence.check_triggers(time)
         time += 0.016
