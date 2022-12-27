@@ -31,21 +31,21 @@
                 {
                     "name": "light1",
                     "parameters": {
-                        "output": "off"
+                        "output": "1off"
                     }
                 },
                 {
-                    "offsetTime":"00:00:01.0",
+                    "delayTime":"00:00:01.0",
                     "name": "light1",
                     "parameters": {
-                        "output": "on"
+                        "output": "1on"
                     }
                 },
                 {
-                    "offsetTime":"00:00:1.5",
+                    "delayTime":"00:00:1.5",
                     "name": "light1",
                     "parameters": {
-                        "output": "off"
+                        "output": "1.5off"
                     }
                 }
             ]
