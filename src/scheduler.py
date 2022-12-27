@@ -210,5 +210,5 @@ if __name__ == '__main__':
         testTime += 0.5
 
     print('--- testing thread ---')
-    testTread = ScheduleRunner('test', 1/60, testSequence)
-    testTread.start()
+    testThread = ScheduleRunner('test', 1/60, testSequence)
+    testThread.start()
