@@ -6,12 +6,16 @@ This project was born from an idea to sequence a Christmas Light display. Rather
 - Schedule actions that are periodic.
   - Define a start and stop time for the periodic action.
   - Define the period length
+- Schedule actions to take place at a relative amount of time from a trigger
 
 ## Code Design
 **Sequencer**  
-60Hz loop should be good enough time step resolution for queueing actions on beats in most songs
+60Hz loop should be good enough time step resolution for queueing actions on beats in most songs.
+SequenceRunner class also specifying clock rate
 
 Actions that take place should be generic. I want to use this scheduler for more than toggling GPIOs from a Raspberry PI to toggle Christmas Lights. I'd like it to be generic enough that I could do that, send out web requests, or toggle things over websockets.
+
+
 
 
 ## File Definition
@@ -43,7 +47,6 @@ Actions that take place should be generic. I want to use this scheduler for more
                     }
                 }
             ]
-
         }
 
     ]

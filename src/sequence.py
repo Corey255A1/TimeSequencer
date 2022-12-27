@@ -14,10 +14,7 @@ def convert_to_seconds(timeNumberOrString):
         return float(timeNumberOrString)
 
 
-class SequenceAction:
-    def __init__(self, name, parameters):
-        self.name = name
-        self.parameters = parameters
+
 
 class StateElement:
     def __init__(self, key, value):
@@ -46,73 +43,161 @@ class State:
         else:
             return None
 
-
-class SequenceElement:
+class TriggerState:
     TRIGGER_STATES = State([
+            'disarmed',
             'pre_trigger', 
             'triggered',
             'trigger_complete'
         ])
-    SEQUENCE_TYPES = State([
-            'once', 
-            'periodic'
-        ])
-    def __init__(self, actionsList, type):
-        self.type = type
-        self.currentTriggerState = SequenceElement.TRIGGER_STATES['pre_trigger']
-        self.actions = actionsList
+
+    def __init__(self):
+        self.triggerState = TriggerState.TRIGGER_STATES['pre_trigger']
 
     def set_trigger_state(self, state):
-        self.currentTriggerState = SequenceElement.TRIGGER_STATES[state]
-
-    def check_trigger(self, time):
-        return self.currentTriggerState
+        #print(state)
+        self.triggerState = TriggerState.TRIGGER_STATES[state]
 
     def reset(self):
         self.set_trigger_state('pre_trigger')
 
+class TimeTrigger(TriggerState):
+    TRIGGER_TYPES = State([
+        'once', 
+        'periodic'
+    ])
+    def __init__(self, type):
+        super().__init__()
+        self.type = type
 
-class SequenceOnceElement(SequenceElement):
-    def __init__(self, actionsList,  startTime):
-        super().__init__(actionsList, SequenceElement.SEQUENCE_TYPES['once'])
+class TriggerAction:
+    def __init__(self, name, parameters):
+        self.name = name
+        self.parameters = parameters
+
+    def can_do_action(self):
+        return True
+    
+
+class TimeRelativeTriggerAction(TriggerAction, TriggerState):
+    def __init__(self, name, offsetTime, parameters):
+        super().__init__(name, parameters)
+        super(TriggerAction, self).__init__()
+        self.relativeStartTime = 0
+        self.currentTime = 0
+        self.offsetTime = timestring_to_seconds(offsetTime)
+        self.set_trigger_state('disarmed')
+
+    def set_relative_start(self, time):
+        self.relativeStartTime = time
+
+    def set_current_time(self, time):
+        self.currentTime = time - self.relativeStartTime
+
+    def can_do_action(self):
+        if self.triggerState == TriggerState.TRIGGER_STATES['disarmed']:
+            return False
+
+        if self.currentTime >= self.offsetTime:
+            if self.triggerState == TriggerState.TRIGGER_STATES['pre_trigger']:
+                self.set_trigger_state('triggered')
+            elif self.triggerState == TriggerState.TRIGGER_STATES['triggered']:
+                self.set_trigger_state('trigger_complete')
+
+        return self.triggerState == TriggerState.TRIGGER_STATES['triggered']
+
+class TimeTriggerAction(TimeTrigger):
+    def __init__(self, type, actionsList):
+        super().__init__(type)
+        self.actions = []
+        self.currentActiveActions = []
+        for action in actionsList:
+            if 'offsetTime' in action:
+                self.actions.append(TimeRelativeTriggerAction(action['name'], action['offsetTime'], action['parameters']))
+            else:
+                self.actions.append(TriggerAction(action['name'], action['parameters']))
+        self.remainingActions = self.actions.copy()
+    
+    def reset_actions(self):
+        self.remainingActions = self.actions.copy()
+
+    def reset(self):
+        self.reset_actions()
+        return super().reset()
+
+    def has_remaining_actions(self):
+        return len(self.remainingActions)
+
+    def check_time(self, time):
+        if not self.has_remaining_actions():
+            return []
+
+        self.currentActiveActions.clear()
+        tempActions = self.remainingActions.copy()
+        isTriggered = self.triggerState == TriggerState.TRIGGER_STATES['triggered']
+        for action in tempActions:
+            #print(action.name)
+            checkAction = isTriggered
+            if isinstance(action, TimeRelativeTriggerAction):
+                if isTriggered:
+                    action.reset()
+                    action.set_relative_start(time)
+                checkAction = True
+                action.set_current_time(time)
+
+            if checkAction and action.can_do_action():
+                self.currentActiveActions.append(action)
+                self.remainingActions.remove(action)
+
+        return self.currentActiveActions
+
+class TriggerOnce(TimeTriggerAction):
+    def __init__(self, actionsList, startTime):
+        super().__init__(TimeTrigger.TRIGGER_TYPES['once'], actionsList)
         self.startTime = convert_to_seconds(startTime)
         self.reset()
 
-    def check_trigger(self, time):
+    def check_time(self, time):
         if time >= self.startTime:
-            if self.currentTriggerState == SequenceElement.TRIGGER_STATES['pre_trigger']:
+            if self.triggerState == TriggerState.TRIGGER_STATES['pre_trigger']:
                 self.set_trigger_state('triggered')
-            elif self.currentTriggerState == SequenceElement.TRIGGER_STATES['triggered']:
+
+            elif self.triggerState == TriggerState.TRIGGER_STATES['triggered']:
                 self.set_trigger_state('trigger_complete')
 
-        return self.currentTriggerState
+        return super().check_time(time)
+    
 
-
-class SequencePeriodicElement(SequenceElement):
+class TriggerPeriodic(TimeTriggerAction):
     def __init__(self, actionsList, startTime, endTime, period):
-        super().__init__(actionsList, SequenceElement.SEQUENCE_TYPES['periodic'])
+        super().__init__(TimeTrigger.TRIGGER_TYPES['periodic'], actionsList)
         self.startTime = convert_to_seconds(startTime)
         self.endTime = convert_to_seconds(endTime)
         self.period = convert_to_seconds(period)
         self.nextTime = 0
         self.reset()
 
-    def check_trigger(self, time):
+    def check_time(self, time):
         if time >= self.endTime:
-            if self.currentTriggerState != SequenceElement.TRIGGER_STATES['trigger_complete']:
+            if self.triggerState != TriggerState.TRIGGER_STATES['trigger_complete']:
                 self.set_trigger_state('trigger_complete')
+
         elif time < self.nextTime:
-            if self.currentTriggerState != SequenceElement.TRIGGER_STATES['pre_trigger']:
+            if self.triggerState != TriggerState.TRIGGER_STATES['pre_trigger']:
+                self.reset_actions()
                 self.set_trigger_state('pre_trigger')
+
         elif time >= self.nextTime:
-            if self.currentTriggerState == SequenceElement.TRIGGER_STATES['pre_trigger']:
+            if self.triggerState == TriggerState.TRIGGER_STATES['pre_trigger']:
                 self.set_trigger_state('triggered')
                 self.nextTime = self.nextTime + self.period
+        return super().check_time(time)
 
-        return self.currentTriggerState
+    def reset_time(self):
+        self.nextTime = self.startTime + self.period
 
     def reset(self):
-        self.nextTime = self.startTime + self.period
+        self.reset_time()
         return super().reset()
 
 
@@ -142,13 +227,13 @@ class Sequence:
         for element in data['sequence']:
             if element['type'] == 'once':
                 self.sequence.append(
-                    SequenceOnceElement(
+                    TriggerOnce(
                         element['actions'],
                         element['startTime']))
 
             elif element['type'] == 'periodic':
                 self.sequence.append(
-                    SequencePeriodicElement(
+                    TriggerPeriodic(
                         element['actions'],
                         element['startTime'],
                         element['endTime'],
@@ -159,12 +244,11 @@ class Sequence:
 
     def check_triggers(self, time):
         for sequenceElement in self.activeSequence:
-            triggerState = sequenceElement.check_trigger(time)
-            if triggerState == SequenceElement.TRIGGER_STATES['triggered']:
-                for action in sequenceElement.actions:
-                    if action['name'] in self.mappedActions:
-                        self.mappedActions[action['name']](action['parameters'])
-            elif triggerState == SequenceElement.TRIGGER_STATES['trigger_complete']:
+            triggeredActions = sequenceElement.check_time(time)
+            for action in triggeredActions:
+                if action.name in self.mappedActions:
+                    self.mappedActions[action.name](action.parameters)
+            if not sequenceElement.has_remaining_actions():
                 self.completeSequenceElements.append(sequenceElement)
 
         for completed in self.completeSequenceElements:
@@ -220,13 +304,13 @@ if __name__ == '__main__':
     testSequence.add_action_callback('light1',light1Action)
     testSequence.add_action_callback('light2',light2Action)
     testSequence.add_action_callback('light3',light3Action)
-    SequenceElement.TRIGGER_STATES.print_all_states()
+    TimeTrigger.TRIGGER_STATES.print_all_states()
     print('--- testing steps ---')
     testTime = 0.0
     while testTime <= 34.0:
-        # print(time)
+        #print(testTime)
         testSequence.check_triggers(testTime)
-        testTime += 0.016
+        testTime += 0.5
     print('--- testing thread ---')
     testTread = SequenceRunner('test', 1/60, testSequence)
     testTread.start()

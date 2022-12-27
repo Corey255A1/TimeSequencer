@@ -26,9 +26,23 @@
         },
         {
             "type": "once",
-            "startTime": "00:00:30.1",
+            "startTime": "00:00:20.1",
             "actions": [
                 {
+                    "name": "light1",
+                    "parameters": {
+                        "output": "off"
+                    }
+                },
+                {
+                    "offsetTime":"00:00:01.0",
+                    "name": "light1",
+                    "parameters": {
+                        "output": "on"
+                    }
+                },
+                {
+                    "offsetTime":"00:00:1.5",
                     "name": "light1",
                     "parameters": {
                         "output": "off"
