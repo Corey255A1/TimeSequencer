@@ -101,7 +101,7 @@ class Scheduler:
                         Action.parse_action_json_array(element['actions']),
                         timestring_to_seconds(element['startTime']),
                         timestring_to_seconds(element['period']),
-                        timestring_to_seconds(element['endTime'])))
+                        timestring_to_seconds(element['endTime'] if 'endTime' in element else float('inf'))))
 
     def has_active_actions(self):
         return len(self.activeActions)
