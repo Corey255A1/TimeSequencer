@@ -11,10 +11,15 @@ This project was born from an idea to sequence a Christmas Light display. Rather
 ## Code Design
 **Sequencer**  
 60Hz loop should be good enough time step resolution for queueing actions on beats in most songs.
-SequenceRunner class also specifying clock rate
+ScheduleRunner can specify the clock rate of execution
 
 Actions that take place should be generic. I want to use this scheduler for more than toggling GPIOs from a Raspberry PI to toggle Christmas Lights. I'd like it to be generic enough that I could do that, send out web requests, or toggle things over websockets.
 
+A sequence JSON has an array of schedule objects. They are either a once or periodic.  
+The once objects are executed once during a cycle.  
+The periodic objects execute starting at the start time and then fire every period. If there is an endTime, the periodic execution ends at that time.  
+The actions list specify the name of the actions that should be invoked. Each action can include a delayTime. Those actions are invoked after the delayTime after the schedule object is triggered.  
+The parameters as part of the actions are passed to the callback function as the json object
 
 
 
@@ -30,6 +35,13 @@ Actions that take place should be generic. I want to use this scheduler for more
                     "name":"light1",
                     "parameters":{
                         "output":"on"
+                    }
+                },
+                {
+                    "delayTime":"00:00:02.0",
+                    "name":"light3",
+                    "parameters":{
+                        "output":"off"
                     }
                 }
             ]
