@@ -4,8 +4,11 @@ import threading
 import time
 
 def timestring_to_seconds(timeString):
-    h, m, s = map(float, timeString.split(':'))
-    return float(h*3600.0 + m*60.0 + s)
+    if ':' in timeString:
+        h, m, s = map(float, timeString.split(':'))
+        return float(h*3600.0 + m*60.0 + s)
+    else:
+        return float(timeString)
 
 
 def convert_to_seconds(timeNumberOrString):
@@ -22,14 +25,14 @@ class Action:
         self.isDelayed = delayTime > 0.0
         self.delayTime = delayTime
 
-    def parse_action_json_array(jsonArray):
+    def parse_action_json_array(jsonArray, timeScaleFactor=1.0):
         actions = []
         for action in jsonArray:
             if 'delayTime' in action:
                 actions.append(Action(
                     action['name'], 
                     action['parameters'], 
-                    timestring_to_seconds(action['delayTime'])))
+                    timestring_to_seconds(action['delayTime'])*timeScaleFactor))
             else:
                 actions.append(Action(
                     action['name'], 
@@ -76,6 +79,45 @@ class TimeAction:
 
         return self.state
 
+class SchedulerFile:
+    def __init__(self):
+        self.useBPM = False
+        self.timeActions = []
+
+    def parse(filePath):
+        scheduler = SchedulerFile()
+        with open(filePath, 'r') as file:
+            data = json.load(file)
+            timeScaleFactor = 1.0
+            if 'bpm' in data:
+                scheduler.useBPM = True
+                print('using BPM')
+                # 100 BPM is 1.66 beats per second
+                # or 0.6 seconds per beat
+                timeScaleFactor = 60.0/data['bpm']
+
+            for element in data['sequence']:
+                startTime = timestring_to_seconds(element['startTime'])
+                period = timestring_to_seconds(element['period']) if 'period' in element else 0.0
+                endTime = timestring_to_seconds(element['endTime']) if 'endTime' in element else float('inf')
+                if scheduler.useBPM:
+                    startTime = startTime * timeScaleFactor
+                    period = period * timeScaleFactor
+                    if endTime != float('inf'):
+                        endTime = endTime * timeScaleFactor
+
+                if element['type'] == 'once':
+                    scheduler.timeActions.append(
+                        TimeAction(
+                            Action.parse_action_json_array(element['actions'], timeScaleFactor), startTime))
+
+                elif element['type'] == 'periodic':
+                    scheduler.timeActions.append(
+                        TimeAction(
+                            Action.parse_action_json_array(element['actions'], timeScaleFactor), startTime, period, endTime))
+        return scheduler
+        
+
 class Scheduler:
     def __init__(self, filePath=None):
         self.scheduledActions = []
@@ -86,22 +128,9 @@ class Scheduler:
             self.reset()
 
     def load_from_file(self, filePath):
-        file = open(filePath, 'r')
-        data = json.load(file)
-        for element in data['sequence']:
-            if element['type'] == 'once':
-                self.schedule_action(
-                    TimeAction(
-                        Action.parse_action_json_array(element['actions']),
-                        timestring_to_seconds(element['startTime'])))
-
-            elif element['type'] == 'periodic':
-                self.schedule_action(
-                    TimeAction(
-                        Action.parse_action_json_array(element['actions']),
-                        timestring_to_seconds(element['startTime']),
-                        timestring_to_seconds(element['period']),
-                        timestring_to_seconds(element['endTime'] if 'endTime' in element else float('inf'))))
+        schedulerFile = SchedulerFile.parse(filePath)
+        for action in schedulerFile.timeActions:
+            self.schedule_action(action)
 
     def has_active_actions(self):
         return len(self.activeActions)
@@ -208,6 +237,20 @@ if __name__ == '__main__':
             print('nothing else')
             break
         testTime += 0.5
+
+
+    print('--- testing bpm mode ---')
+    testBPM = Scheduler('../tests/bpm_sequence.json')
+    testBPM.add_action_callback('light1',light1Action)
+    testBPM.add_action_callback('light2',light2Action)
+    testBPM.add_action_callback('light3',light3Action)
+    testTime = 0.0
+    while testTime <= 34.0:
+        testBPM.check_time(testTime)
+        if not testBPM.has_active_actions():
+            print('nothing else')
+            break
+        testTime += 0.1
 
     print('--- testing thread ---')
     testThread = ScheduleRunner('test', 1/60, testSequence)

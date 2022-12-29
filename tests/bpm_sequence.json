@@ -1,0 +1,87 @@
+{
+    "bpm":100,
+    "sequence": [
+        {
+            "type": "once",
+            "startTime": "0",
+            "actions": [
+                {
+                    "name": "light1",
+                    "parameters": {
+                        "output": "off"
+                    }
+                },
+                {
+                    "name": "light2",
+                    "parameters": {
+                        "output": "off"
+                    }
+                },
+                {
+                    "name": "light3",
+                    "parameters": {
+                        "output": "on"
+                    }
+                }
+            ]
+        },
+        {
+            "type": "once",
+            "startTime": "16",
+            "actions": [
+                {
+                    "name": "light1",
+                    "parameters": {
+                        "output": "1off"
+                    }
+                },
+                {
+                    "delayTime":"1",
+                    "name": "light1",
+                    "parameters": {
+                        "output": "1on"
+                    }
+                },
+                {
+                    "delayTime":"2",
+                    "name": "light1",
+                    "parameters": {
+                        "output": "1.5off"
+                    }
+                }
+            ]
+        },
+        {
+            "type": "periodic",
+            "period": "4",
+            "startTime": "8",
+            "endTime": "64",
+            "actions": [
+                {
+                    "name": "light2",
+                    "parameters": {
+                        "output": "toggle"
+                    }
+                }
+            ]
+        },
+        {
+            "type": "once",
+            "startTime": "128",
+            "actions": [
+                {
+                    "name": "light1",
+                    "parameters": {
+                        "output": "on"
+                    }
+                },
+                {
+                    "name": "light3",
+                    "parameters": {
+                        "output": "off"
+                    }
+                }
+            ]
+        }
+    ]
+}

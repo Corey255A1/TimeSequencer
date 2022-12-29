@@ -7,6 +7,8 @@ This project was born from an idea to sequence a Christmas Light display. Rather
   - Define a start and stop time for the periodic action.
   - Define the period length
 - Schedule actions to take place at a relative amount of time from a trigger
+- Allow for scheduling things on beats
+  - Beats Per Minute defined in top of file
 
 ## Code Design
 **Sequencer**  
@@ -51,6 +53,47 @@ The parameters as part of the actions are passed to the callback function as the
             "period":"00:00:01.0",
             "startTime":"00:00:00.0",
             "endTime":"00:01:00.0",
+            "actions":[
+                {
+                    "name":"light2",
+                    "parameters":{
+                        "output":"toggle"
+                    }
+                }
+            ]
+        }
+
+    ]
+}
+~~~
+~~~
+{
+    "bpm":100,
+    "sequence":[
+       {
+            "type":"once",
+            "startTime":"4.0",
+            "actions":[
+                {
+                    "name":"light1",
+                    "parameters":{
+                        "output":"on"
+                    }
+                },
+                {
+                    "delayTime":"0.25",
+                    "name":"light3",
+                    "parameters":{
+                        "output":"off"
+                    }
+                }
+            ]
+        },
+        {
+            "type":"periodic",
+            "period":"4",
+            "startTime":"4",
+            "endTime":"32",
             "actions":[
                 {
                     "name":"light2",

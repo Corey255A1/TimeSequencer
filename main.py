@@ -12,7 +12,7 @@ def light2Action(parameters):
 def light3Action(parameters):
     print(parameters)
 
-testSequence = scheduler.Scheduler('./tests/standard_sequence.json')
+testSequence = scheduler.Scheduler('./tests/bpm_sequence.json')
 testSequence.add_action_callback('light1',light1Action)
 testSequence.add_action_callback('light2',light2Action)
 testSequence.add_action_callback('light3',light3Action)
